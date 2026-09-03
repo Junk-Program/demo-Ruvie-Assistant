@@ -1,8 +1,5 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
-	import { v4 as uuidv4 } from 'uuid';
-	import Sortable from 'sortablejs';
-
 	import { goto } from '$app/navigation';
 	import {
 		user,
@@ -11,13 +8,10 @@
 		showSettings,
 		chatId,
 		tags,
-		folders as _folders,
 		showSidebar,
-		showSearch,
 		mobile,
 		showArchivedChats,
 		pinnedChats,
-		pinnedNotes,
 		scrollPaginationEnabled,
 		currentChatPage,
 		temporaryChatEnabled,
@@ -48,16 +42,7 @@
 		deleteAllChats,
 		getChatListBySearchText
 	} from '$lib/apis/chats';
-	import {
-		createNewFolder,
-		getFolders,
-		getSharedFolders,
-		updateFolderParentIdById
-	} from '$lib/apis/folders';
-	import { createNewNote, getPinnedNoteList, toggleNotePinnedStatusById } from '$lib/apis/notes';
-	import { updateUserSettings } from '$lib/apis/users';
 	import { checkActiveChats } from '$lib/apis/tasks';
-	import { createNoteHandler } from '$lib/components/notes/utils';
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 
 	import ArchivedChatsModal from './ArchivedChatsModal.svelte';
@@ -67,26 +52,16 @@
 	import Loader from '../common/Loader.svelte';
 	import Folder from '../common/Folder.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
-	import Folders from './Sidebar/Folders.svelte';
-	import SharedFolderItem from './Sidebar/SharedFolderItem.svelte';
 	import { getChannels, createNewChannel } from '$lib/apis/channels';
 	import ChannelModal from './Sidebar/ChannelModal.svelte';
 	import ChannelItem from './Sidebar/ChannelItem.svelte';
 	import PencilSquare from '../icons/PencilSquare.svelte';
-	import Search from '../icons/Search.svelte';
-	import SearchModal from './SearchModal.svelte';
-	import FolderModal from './Sidebar/Folders/FolderModal.svelte';
 	import Sidebar from '../icons/Sidebar.svelte';
 	import PinnedModelList from './Sidebar/PinnedModelList.svelte';
-	import PinnedNoteList from './Sidebar/PinnedNoteList.svelte';
-	import Note from '../icons/Note.svelte';
-	import Code from '../icons/Code.svelte';
 	import { slide } from 'svelte/transition';
 	import HotkeyHint from '../common/HotkeyHint.svelte';
 
 	const BREAKPOINT = 768;
-	const DEFAULT_PINNED_ITEMS = ['notes', 'workspace'];
-
 	let scrollTop = 0;
 
 	let navElement;
@@ -99,210 +74,10 @@
 	let chatListLoading = false;
 	let allChatsLoaded = false;
 
-	let showCreateFolderModal = false;
-
 	let pinnedModels = [];
 
 	let showPinnedModels = false;
-	let showPinnedNotes = false;
 	let showChannels = false;
-	let showFolders = false;
-	let showSharedFolders = false;
-
-	let folders = {};
-	let folderRegistry = {};
-
-	let newFolderId = null;
-
-	let sharedFolders: any[] = [];
-
-	$: pinnedItems = $settings?.pinnedMenuItems ?? DEFAULT_PINNED_ITEMS;
-
-	const isMenuItemVisible = (id) => {
-		switch (id) {
-			case 'notes':
-				return (
-					($config?.features?.enable_notes ?? false) &&
-					($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))
-				);
-			case 'workspace':
-				return (
-					$user?.role === 'admin' ||
-					$user?.permissions?.workspace?.models ||
-					$user?.permissions?.workspace?.knowledge ||
-					$user?.permissions?.workspace?.prompts ||
-					$user?.permissions?.workspace?.tools ||
-					$user?.permissions?.workspace?.skills
-				);
-			case 'automations':
-				return (
-					$config?.features?.enable_automations &&
-					($user?.role === 'admin' || $user?.permissions?.features?.automations)
-				);
-			case 'calendar':
-				return (
-					$config?.features?.enable_calendar &&
-					($user?.role === 'admin' || $user?.permissions?.features?.calendar)
-				);
-			case 'playground':
-				return $user?.role === 'admin';
-			default:
-				return false;
-		}
-	};
-
-	const getMenuItemMeta = (id) => {
-		const items = {
-			notes: { label: 'Notes', href: '/notes', iconType: 'note' },
-			workspace: { label: 'Workspace', href: '/workspace', iconType: 'workspace' },
-			automations: { label: 'Automations', href: '/automations', iconType: 'automations' },
-			calendar: { label: 'Calendar', href: '/calendar', iconType: 'calendar' },
-			playground: { label: 'Playground', href: '/playground', iconType: 'playground' }
-		};
-		return items[id];
-	};
-
-	const initPinnedMenuSortable = () => {
-		const el = document.getElementById('pinned-menu-items-list');
-		if (el && !$mobile) {
-			new Sortable(el, {
-				animation: 150,
-				onUpdate: async (event) => {
-					const itemId = event.item.dataset.id;
-					const newIndex = event.newIndex;
-					const current = [...pinnedItems];
-					const oldIndex = current.indexOf(itemId);
-					current.splice(oldIndex, 1);
-					current.splice(newIndex, 0, itemId);
-					settings.set({ ...$settings, pinnedMenuItems: current });
-					await updateUserSettings(localStorage.token, { ui: $settings });
-				}
-			});
-		}
-	};
-
-	$: if ($selectedFolder) {
-		initFolders();
-	}
-
-	const initFolders = async () => {
-		if ($config?.features?.enable_folders === false) {
-			return;
-		}
-
-		const folderList = await getFolders(localStorage.token).catch((error) => {
-			return [];
-		});
-		_folders.set(folderList.sort((a, b) => b.updated_at - a.updated_at));
-
-		folders = {};
-
-		// First pass: Initialize all folder entries
-		for (const folder of folderList) {
-			// Ensure folder is added to folders with its data
-			folders[folder.id] = { ...(folders[folder.id] || {}), ...folder };
-
-			if (newFolderId && folder.id === newFolderId) {
-				folders[folder.id].new = true;
-				newFolderId = null;
-			}
-		}
-
-		// Second pass: Tie child folders to their parents
-		for (const folder of folderList) {
-			if (folder.parent_id) {
-				// Ensure the parent folder is initialized if it doesn't exist
-				if (!folders[folder.parent_id]) {
-					folders[folder.parent_id] = {}; // Create a placeholder if not already present
-				}
-
-				// Initialize childrenIds array if it doesn't exist and add the current folder id
-				folders[folder.parent_id].childrenIds = folders[folder.parent_id].childrenIds
-					? [...folders[folder.parent_id].childrenIds, folder.id]
-					: [folder.id];
-
-				// Sort the children by updated_at field
-				folders[folder.parent_id].childrenIds.sort((a, b) => {
-					return folders[b].updated_at - folders[a].updated_at;
-				});
-			}
-		}
-
-		// Merge shared folders into the same structure
-		try {
-			sharedFolders = await getSharedFolders(localStorage.token);
-		} catch (e) {
-			sharedFolders = [];
-		}
-
-		for (const sf of sharedFolders) {
-			if (folders[sf.id]) continue; // Already owned by user
-			folders[sf.id] = { ...sf, shared: true };
-		}
-
-		// Build parent-child relationships for shared folders
-		for (const sf of sharedFolders) {
-			if (folders[sf.id]?.shared && sf.parent_id && folders[sf.parent_id]) {
-				folders[sf.parent_id].childrenIds = folders[sf.parent_id].childrenIds
-					? [...new Set([...folders[sf.parent_id].childrenIds, sf.id])]
-					: [sf.id];
-			}
-		}
-	};
-
-	const initSharedFolders = async () => {
-		await initFolders();
-	};
-
-	const createFolder = async ({ name, data, parent_id }) => {
-		name = name?.trim();
-		if (!name) {
-			toast.error($i18n.t('Folder name cannot be empty.'));
-			return;
-		}
-
-		// Check for duplicate names in the same parent
-		const siblings = Object.values(folders).filter((folder) => folder.parent_id === parent_id);
-		if (siblings.find((folder) => folder.name.toLowerCase() === name.toLowerCase())) {
-			// If a folder with the same name already exists, append a number to the name
-			let i = 1;
-			while (
-				siblings.find((folder) => folder.name.toLowerCase() === `${name} ${i}`.toLowerCase())
-			) {
-				i++;
-			}
-
-			name = `${name} ${i}`;
-		}
-
-		// Add a dummy folder to the list to show the user that the folder is being created
-		const tempId = uuidv4();
-		folders = {
-			...folders,
-			[tempId]: {
-				id: tempId,
-				name: name,
-				parent_id: parent_id,
-				created_at: Date.now(),
-				updated_at: Date.now()
-			}
-		};
-
-		const res = await createNewFolder(localStorage.token, {
-			name,
-			data,
-			parent_id
-		}).catch((error) => {
-			toast.error(`${error}`);
-			return null;
-		});
-
-		if (res) {
-			// newFolderId = res.id;
-			await initFolders();
-			showFolders = true;
-		}
-	};
 
 	const initChannels = async () => {
 		// default (none), group, dm type
@@ -327,8 +102,6 @@
 		allChatsLoaded = false;
 		scrollPaginationEnabled.set(false);
 
-		initFolders();
-		initSharedFolders();
 		await Promise.all([
 			(async () => {
 				console.log('Init tags');
@@ -339,16 +112,6 @@
 				console.log('Init pinned chats');
 				const _pinnedChats = await getPinnedChatList(localStorage.token);
 				pinnedChats.set(_pinnedChats);
-			})(),
-			(async () => {
-				if (
-					$config?.features?.enable_notes &&
-					($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))
-				) {
-					console.log('Init pinned notes');
-					const _pinnedNotes = await getPinnedNoteList(localStorage.token).catch(() => []);
-					pinnedNotes.set(_pinnedNotes);
-				}
 			})(),
 			(async () => {
 				console.log('Init chat list');
@@ -643,7 +406,6 @@
 		socketInstance?.on('events', chatActiveEventHandler);
 
 		await tick();
-		initPinnedMenuSortable();
 
 		return () => {
 			unsubscribers.forEach((unsubscriber) => unsubscriber());
@@ -773,16 +535,6 @@
 	}}
 />
 
-<FolderModal
-	bind:show={showCreateFolderModal}
-	onSubmit={async (folder) => {
-		await createFolder(folder);
-		showCreateFolderModal = false;
-	}}
-/>
-
-<!-- svelte-ignore a11y-no-static-element-interactions -->
-
 {#if $showSidebar}
 	<div
 		class=" {$isApp
@@ -793,15 +545,6 @@
 		}}
 	/>
 {/if}
-
-<SearchModal
-	bind:show={$showSearch}
-	onClose={() => {
-		if ($mobile) {
-			showSidebar.set(false);
-		}
-	}}
-/>
 
 <button
 	id="sidebar-new-chat-button"
@@ -879,101 +622,6 @@
 						</a>
 					</Tooltip>
 				</div>
-
-				<div>
-					<Tooltip content={$i18n.t('Search')} placement="right">
-						<button
-							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
-							on:click={(e) => {
-								e.stopImmediatePropagation();
-								e.preventDefault();
-
-								showSearch.set(true);
-							}}
-							draggable="false"
-							aria-label={$i18n.t('Search')}
-						>
-							<div class=" self-center flex items-center justify-center size-9">
-								<Search className="size-4.5" />
-							</div>
-						</button>
-					</Tooltip>
-				</div>
-
-				{#each pinnedItems as itemId (itemId)}
-					{@const meta = getMenuItemMeta(itemId)}
-					{#if meta && isMenuItemVisible(itemId)}
-						<div class="">
-							<Tooltip content={$i18n.t(meta.label)} placement="right">
-								<a
-									class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
-									href={meta.href}
-									on:click={async (e) => {
-										e.stopImmediatePropagation();
-										e.preventDefault();
-										goto(meta.href);
-										itemClickHandler();
-									}}
-									draggable="false"
-									aria-label={$i18n.t(meta.label)}
-								>
-									<div class=" self-center flex items-center justify-center size-9">
-										{#if itemId === 'notes'}
-											<Note className="size-4.5" />
-										{:else if itemId === 'workspace'}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke-width="1.5"
-												stroke="currentColor"
-												class="size-4.5"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 0 0 2.25-2.25V6a2.25 2.25 0 0 0-2.25-2.25H6A2.25 2.25 0 0 0 3.75 6v2.25A2.25 2.25 0 0 0 6 10.5Zm0 9.75h2.25A2.25 2.25 0 0 0 10.5 18v-2.25a2.25 2.25 0 0 0-2.25-2.25H6a2.25 2.25 0 0 0-2.25 2.25V18A2.25 2.25 0 0 0 6 20.25Zm9.75-9.75H18a2.25 2.25 0 0 0 2.25-2.25V6A2.25 2.25 0 0 0 18 3.75h-2.25A2.25 2.25 0 0 0 13.5 6v2.25a2.25 2.25 0 0 0 2.25 2.25Z"
-												/>
-											</svg>
-										{:else if itemId === 'automations'}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke-width="1.5"
-												stroke="currentColor"
-												class="size-4.5"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-												/>
-											</svg>
-										{:else if itemId === 'calendar'}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke-width="1.5"
-												stroke="currentColor"
-												class="size-4.5"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"
-												/>
-											</svg>
-										{:else if itemId === 'playground'}
-											<Code className="size-4.5" />
-										{/if}
-									</div>
-								</a>
-							</Tooltip>
-						</div>
-					{/if}
-				{/each}
 			</div>
 		</button>
 
@@ -1024,9 +672,6 @@
 		</div>
 	</div>
 {/if}
-
-<!-- {$i18n.t('New Folder')} -->
-<!-- {$i18n.t('Pinned')} -->
 
 {#if $showSidebar}
 	<div
@@ -1096,10 +741,10 @@
 					</button>
 				</Tooltip>
 
-			<div
-				class="{scrollTop > 0
-					? 'visible'
-					: 'invisible'} sidebar-bg-gradient-to-b bg-linear-to-b from-[#f6f1e8] dark:from-[#0f172a] to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mb-6"
+				<div
+					class="{scrollTop > 0
+						? 'visible'
+						: 'invisible'} sidebar-bg-gradient-to-b bg-linear-to-b from-[#f6f1e8] dark:from-[#0f172a] to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mb-6"
 				></div>
 			</div>
 
@@ -1134,105 +779,6 @@
 							<HotkeyHint name="newChat" className=" group-hover:visible invisible" />
 						</a>
 					</div>
-
-					<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
-						<button
-							id="sidebar-search-button"
-							class="group grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition outline-none"
-							on:click={() => {
-								showSearch.set(true);
-							}}
-							draggable="false"
-							aria-label={$i18n.t('Search')}
-						>
-							<div class="self-center">
-								<Search strokeWidth="2" className="size-4.5" />
-							</div>
-
-							<div class="flex flex-1 self-center translate-y-[0.5px]">
-								<div class=" self-center text-sm font-primary">{$i18n.t('Search')}</div>
-							</div>
-							<HotkeyHint name="search" className=" group-hover:visible invisible" />
-						</button>
-					</div>
-
-					<div id="pinned-menu-items-list">
-						{#each pinnedItems as itemId (itemId)}
-							{@const meta = getMenuItemMeta(itemId)}
-							{#if meta && isMenuItemVisible(itemId)}
-								<div
-									class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200"
-									data-id={itemId}
-								>
-									<a
-										id="sidebar-{itemId}-button"
-										class="grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
-										href={meta.href}
-										on:click={itemClickHandler}
-										draggable="false"
-										aria-label={$i18n.t(meta.label)}
-									>
-										<div class="self-center">
-											{#if itemId === 'notes'}
-												<Note className="size-4.5" strokeWidth="2" />
-											{:else if itemId === 'workspace'}
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke-width="2"
-													stroke="currentColor"
-													class="size-4.5"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 0 0 2.25-2.25V6a2.25 2.25 0 0 0-2.25-2.25H6A2.25 2.25 0 0 0 3.75 6v2.25A2.25 2.25 0 0 0 6 10.5Zm0 9.75h2.25A2.25 2.25 0 0 0 10.5 18v-2.25a2.25 2.25 0 0 0-2.25-2.25H6a2.25 2.25 0 0 0-2.25 2.25V18A2.25 2.25 0 0 0 6 20.25Zm9.75-9.75H18a2.25 2.25 0 0 0 2.25-2.25V6A2.25 2.25 0 0 0 18 3.75h-2.25A2.25 2.25 0 0 0 13.5 6v2.25a2.25 2.25 0 0 0 2.25 2.25Z"
-													/>
-												</svg>
-											{:else if itemId === 'automations'}
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke-width="2"
-													stroke="currentColor"
-													class="size-4.5"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-													/>
-												</svg>
-											{:else if itemId === 'calendar'}
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke-width="2"
-													stroke="currentColor"
-													class="size-4.5"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"
-													/>
-												</svg>
-											{:else if itemId === 'playground'}
-												<Code className="size-4.5" strokeWidth="2" />
-											{/if}
-										</div>
-
-										<div class="flex self-center translate-y-[0.5px]">
-											<div class=" self-center text-sm font-primary">{$i18n.t(meta.label)}</div>
-										</div>
-									</a>
-								</div>
-							{/if}
-						{/each}
-					</div>
 				</div>
 
 				{#if ($models ?? []).length > 0 && (($settings?.pinnedModels ?? []).length > 0 || $config?.default_pinned_models)}
@@ -1245,26 +791,6 @@
 						dragAndDrop={false}
 					>
 						<PinnedModelList bind:selectedChatId {shiftKey} />
-					</Folder>
-				{/if}
-
-				{#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true)) && $pinnedNotes.length > 0}
-					<Folder
-						id="sidebar-pinned-notes"
-						bind:open={showPinnedNotes}
-						className="px-2 mt-0.5"
-						name={$i18n.t('Notes')}
-						chevron={false}
-						dragAndDrop={false}
-						onAdd={async () => {
-							const note = await createNoteHandler('New Note');
-							if (note) {
-								goto(`/notes/${note.id}`);
-							}
-						}}
-						onAddLabel={$i18n.t('New Note')}
-					>
-						<PinnedNoteList bind:selectedChatId />
 					</Folder>
 				{/if}
 
@@ -1300,60 +826,6 @@
 								/>
 							{/if}
 						{/each}
-					</Folder>
-				{/if}
-
-				{#if $config?.features?.enable_folders && ($user?.role === 'admin' || ($user?.permissions?.features?.folders ?? true))}
-					<Folder
-						id="sidebar-folders"
-						bind:open={showFolders}
-						className="px-2 mt-0.5"
-						name={$i18n.t('Folders')}
-						chevron={false}
-						onAdd={() => {
-							showCreateFolderModal = true;
-						}}
-						onAddLabel={$i18n.t('New Folder')}
-						on:drop={async (e) => {
-							const { type, id, item } = e.detail;
-
-							if (type === 'folder') {
-								if (folders[id].parent_id === null) {
-									return;
-								}
-
-								const res = await updateFolderParentIdById(localStorage.token, id, null).catch(
-									(error) => {
-										toast.error(`${error}`);
-										return null;
-									}
-								);
-
-								if (res) {
-									await initFolders();
-								}
-							}
-						}}
-					>
-						<Folders
-							bind:folderRegistry
-							{folders}
-							{shiftKey}
-							onDelete={(folderId) => {
-								selectedFolder.set(null);
-								initChatList();
-							}}
-							on:update={() => {
-								initChatList();
-							}}
-							on:import={(e) => {
-								const { folderId, items } = e.detail;
-								importChatHandler(items, false, folderId);
-							}}
-							on:change={async () => {
-								initChatList();
-							}}
-						/>
 					</Folder>
 				{/if}
 
@@ -1396,14 +868,10 @@
 							if (chat) {
 								console.log(chat);
 								if (chat.folder_id) {
-									const res = await updateChatFolderIdById(localStorage.token, chat.id, null).catch(
-										(error) => {
-											toast.error(`${error}`);
-											return null;
-										}
-									);
-
-									folderRegistry[chat.folder_id]?.setFolderItems();
+									await updateChatFolderIdById(localStorage.token, chat.id, null).catch((error) => {
+										toast.error(`${error}`);
+										return null;
+									});
 								}
 
 								if (chat.pinned) {
@@ -1411,21 +879,6 @@
 								}
 
 								initChatList();
-							}
-						} else if (type === 'folder') {
-							if (folders[id].parent_id === null) {
-								return;
-							}
-
-							const res = await updateFolderParentIdById(localStorage.token, id, null).catch(
-								(error) => {
-									toast.error(`${error}`);
-									return null;
-								}
-							);
-
-							if (res) {
-								await initFolders();
 							}
 						}
 					}}

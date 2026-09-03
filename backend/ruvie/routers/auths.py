@@ -95,7 +95,6 @@ ADMIN_CONFIG_KEYS = {
     'DEFAULT_USER_ROLE': 'ui.default_user_role',
     'DEFAULT_GROUP_ID': 'ui.default_group_id',
     'JWT_EXPIRES_IN': 'auth.jwt_expiry',
-    'ENABLE_COMMUNITY_SHARING': 'ui.enable_community_sharing',
     'ENABLE_MESSAGE_RATING': 'ui.enable_message_rating',
     'ENABLE_FOLDERS': 'folders.enable',
     'FOLDER_MAX_FILE_COUNT': 'folders.max_file_count',
@@ -1132,7 +1131,6 @@ class AdminConfig(BaseModel):
     DEFAULT_USER_ROLE: str
     DEFAULT_GROUP_ID: str
     JWT_EXPIRES_IN: str
-    ENABLE_COMMUNITY_SHARING: bool
     ENABLE_MESSAGE_RATING: bool
     ENABLE_FOLDERS: bool
     FOLDER_MAX_FILE_COUNT: int | str | None = None

@@ -146,14 +146,11 @@ from ruvie.routers import (
     configs,
     evaluations,
     files,
-    folders,
     functions,
     groups,
     images,
-    knowledge,
     memories,
     models,
-    notes,
     ollama,
     openai,
     pipelines,
@@ -745,17 +742,14 @@ app.include_router(users.router, prefix='/api/v1/users', tags=['users'])
 
 app.include_router(channels.router, prefix='/api/v1/channels', tags=['channels'])
 app.include_router(chats.router, prefix='/api/v1/chats', tags=['chats'])
-app.include_router(notes.router, prefix='/api/v1/notes', tags=['notes'])
 
 
 app.include_router(models.router, prefix='/api/v1/models', tags=['models'])
-app.include_router(knowledge.router, prefix='/api/v1/knowledge', tags=['knowledge'])
 app.include_router(prompts.router, prefix='/api/v1/prompts', tags=['prompts'])
 app.include_router(tools.router, prefix='/api/v1/tools', tags=['tools'])
 app.include_router(skills.router, prefix='/api/v1/skills', tags=['skills'])
 
 app.include_router(memories.router, prefix='/api/v1/memories', tags=['memories'])
-app.include_router(folders.router, prefix='/api/v1/folders', tags=['folders'])
 app.include_router(groups.router, prefix='/api/v1/groups', tags=['groups'])
 app.include_router(files.router, prefix='/api/v1/files', tags=['files'])
 app.include_router(functions.router, prefix='/api/v1/functions', tags=['functions'])
@@ -1870,7 +1864,6 @@ async def get_app_config(request: Request):
         'code_interpreter.enable',
         'image_generation.enable',
         'task.autocomplete.enable',
-        'ui.enable_community_sharing',
         'ui.enable_message_rating',
         'ui.enable_user_webhooks',
         'users.enable_status',
@@ -1938,7 +1931,6 @@ async def get_app_config(request: Request):
                     'enable_code_interpreter': config.get('code_interpreter.enable'),
                     'enable_image_generation': config.get('image_generation.enable'),
                     'enable_autocomplete_generation': config.get('task.autocomplete.enable'),
-                    'enable_community_sharing': config.get('ui.enable_community_sharing'),
                     'enable_message_rating': config.get('ui.enable_message_rating'),
                     'enable_user_webhooks': config.get('ui.enable_user_webhooks'),
                     'enable_user_status': config.get('users.enable_status'),

@@ -721,8 +721,8 @@ async def verify_connection(
     form_data: ConnectionVerificationForm,
     user=Depends(get_admin_user),
 ):
-    url = form_data.url
-    key = form_data.key
+    url = form_data.url.strip().rstrip('/')
+    key = form_data.key.strip()
 
     api_config = form_data.config or {}
 

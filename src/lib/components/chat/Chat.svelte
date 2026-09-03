@@ -1162,8 +1162,15 @@
 			fileItem.file = uploadedFile;
 			fileItem.id = uploadedFile.id;
 			fileItem.size = file.size;
+			fileItem.content_type = uploadedFile?.meta?.content_type ?? file.type;
 			fileItem.collection_name = uploadedFile?.meta?.collection_name;
 			fileItem.url = `${uploadedFile.id}`;
+			if (
+				fileItem.content_type?.startsWith('text/') ||
+				file.name.toLowerCase().endsWith('.txt')
+			) {
+				fileItem.context = 'full';
+			}
 
 			files = files;
 			toast.success($i18n.t('File uploaded successfully'));
@@ -2597,8 +2604,7 @@
 								title_generation: $settings?.title?.auto ?? true,
 								tags_generation: $settings?.autoTags ?? true
 							}
-						: {}),
-					follow_up_generation: $settings?.autoFollowUps ?? true
+						: {})
 				},
 
 				...(stream && (model.info?.meta?.capabilities?.usage ?? false)

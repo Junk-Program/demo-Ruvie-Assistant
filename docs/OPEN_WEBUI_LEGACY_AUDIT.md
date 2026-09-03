@@ -17,30 +17,17 @@ Ruvie:
 - Community, model, prompt, tool, and function links still point to
   `openwebui.com` in:
   - `src/lib/components/admin/Evaluations/Feedbacks.svelte`
-  - `src/lib/components/admin/Functions.svelte`
   - `src/lib/components/chat/ChatPlaceholder.svelte`
   - `src/lib/components/chat/Placeholder.svelte`
-  - `src/lib/components/chat/Messages/RateComment.svelte`
-  - `src/lib/components/chat/ModelSelector/ModelItemMenu.svelte`
-  - `src/lib/components/chat/ShareChatModal.svelte`
-  - `src/lib/components/workspace/Models.svelte`
-  - `src/lib/components/workspace/Prompts.svelte`
-  - `src/lib/components/workspace/Tools.svelte`
 - Help, release, enterprise, social, and license links still point to Open WebUI
   documentation or accounts in:
   - `src/lib/components/AddToolServerModal.svelte`
   - `src/lib/components/admin/Settings/Authentication.svelte`
   - `src/lib/components/admin/Settings/Connections.svelte`
-  - `src/lib/components/admin/Settings/General.svelte`
   - `src/lib/components/admin/Users/UserList.svelte`
-  - `src/lib/components/chat/Settings/About.svelte`
   - `src/lib/components/chat/Settings/General.svelte`
   - `src/lib/components/layout/Sidebar/UserMenu.svelte`
   - `src/lib/components/layout/UpdateInfoToast.svelte`
-- The enabled Vietnamese and Russian translations still display “OpenWebUI
-  Community” for three Ruvie community strings:
-  - `src/lib/i18n/locales/vi-VN/translation.json`
-  - `src/lib/i18n/locales/ru-RU/translation.json`
 - Function-editor defaults still identify `open-webui` as the author and link to
   its GitHub account:
   - `src/lib/components/admin/Functions/FunctionEditor.svelte`
