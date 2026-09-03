@@ -9,6 +9,8 @@ Start this workspace in two separate long-lived sessions: backend first, then fr
 
 - `npm run dev` triggers `scripts/prepare-pyodide.js`, which tries to fetch remote assets and can fail in restricted environments.
 - PowerShell expands `*` in `--forwarded-allow-ips "*"`, so the simplest reliable backend command for local dev is to omit that flag entirely.
+- The backend package for this repo is `ruvie`, not `open_webui`; use `ruvie.main:app` for dev startup.
+- If the app must verify or call external providers such as OpenRouter from inside Codex, the backend process needs outbound network permission. A sandboxed backend can fail with `Cannot connect to host openrouter.ai:443 ssl:default [Access is denied]` / `PermissionError: [WinError 5] Access is denied` even when the URL and API key are valid.
 
 ## Quick Checks
 
@@ -25,7 +27,7 @@ If `.env` does not already define `WEBUI_SECRET_KEY`, add a long dev-only secret
 Start the backend with:
 
 ```powershell
-.\.venv\Scripts\uvicorn.exe open_webui.main:app --app-dir backend --host 127.0.0.1 --port 8080 --reload
+.\.venv\Scripts\uvicorn.exe ruvie.main:app --app-dir backend --host 127.0.0.1 --port 8080
 ```
 
 Treat `http://127.0.0.1:8080/health` as the backend readiness check.
@@ -35,7 +37,9 @@ Notes:
 - A warning such as `No module named 'sentence_transformers'` is non-blocking if the health endpoint succeeds.
 - If startup fails with a message about `WEBUI_SECRET_KEY`, repair the env value and retry.
 - If Python dependencies are missing, install them into `.venv`, not into a global interpreter.
-- If you specifically need `--forwarded-allow-ips *` for proxy testing, use PowerShell's stop-parsing form: `.\.venv\Scripts\uvicorn.exe --% open_webui.main:app --app-dir backend --host 127.0.0.1 --port 8080 --forwarded-allow-ips * --reload`.
+- Use `--reload` only when live reload is specifically useful; a plain long-lived backend is usually more stable for Codex restarts.
+- If OpenRouter or another external API reports a network problem while the same key works elsewhere, inspect backend logs for `WinError 5` or `Access is denied`. If present, stop the stale process on port `8080` and restart the backend with escalated/out-of-sandbox network permission.
+- If you specifically need `--forwarded-allow-ips *` for proxy testing, use PowerShell's stop-parsing form: `.\.venv\Scripts\uvicorn.exe --% ruvie.main:app --app-dir backend --host 127.0.0.1 --port 8080 --forwarded-allow-ips *`.
 
 ## Frontend
 
@@ -70,6 +74,7 @@ Use these fixes first:
 2. Backend exits because `WEBUI_SECRET_KEY` is empty: set the value in `.env` and, if used, `backend/.webui_secret_key`.
 3. Port `8080` or `5173` is busy: stop the stale process or restart the corresponding service cleanly.
 4. Missing Python modules: install them into `.venv` and retry the backend.
+5. External provider verification fails with `OpenAI: Network Problem` and logs show `openrouter.ai:443` plus `Access is denied`: the URL `https://openrouter.ai/api/v1` is valid, so restart the backend outside the sandbox with network permission.
 
 ## Fallback
 

@@ -1,18 +1,16 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { config, user } from '$lib/stores';
+	import { user } from '$lib/stores';
 
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Share from '$lib/components/icons/Share.svelte';
 	import DocumentDuplicate from '$lib/components/icons/DocumentDuplicate.svelte';
 	import Download from '$lib/components/icons/Download.svelte';
 
 	const i18n = getContext('i18n');
 
 	export let editHandler: Function;
-	export let shareHandler: Function;
 	export let cloneHandler: Function;
 	export let exportHandler: Function;
 	export let deleteHandler: Function;
@@ -61,19 +59,6 @@
 
 				<div class="flex items-center">{$i18n.t('Edit')}</div>
 			</button>
-
-			{#if $config.features.enable_community_sharing}
-				<button
-					class="select-none flex gap-2 items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl w-full"
-					draggable="false"
-					on:click={() => {
-						shareHandler();
-					}}
-				>
-					<Share />
-					<div class="flex items-center">{$i18n.t('Share')}</div>
-				</button>
-			{/if}
 
 			<button
 				class="select-none flex gap-2 items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl w-full"

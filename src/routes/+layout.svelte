@@ -77,7 +77,6 @@
 	import NotificationToast from '$lib/components/NotificationToast.svelte';
 	// Browser-only: Electron app sidebar shell disabled.
 	// import AppSidebar from '$lib/components/app/AppSidebar.svelte';
-	// import SyncStatsModal from '$lib/components/chat/Settings/SyncStatsModal.svelte';
 	// import Spinner from '$lib/components/common/Spinner.svelte';
 	import { getOutputText } from '$lib/components/chat/Messages/structuredOutput';
 	// import { getUserSettings } from '$lib/apis/users';
@@ -115,10 +114,6 @@
 	let isAuthRedirectInProgress = false;
 
 	let showRefresh = false;
-
-	// Sync Usage Stats is archived; keep these commented for easy restore.
-	// let showSyncStatsModal = false;
-	// let syncStatsEventData = null;
 
 	let heartbeatInterval = null;
 	let disconnectToastTimer = null;
@@ -944,22 +939,6 @@
 	// 	}
 	// };
 
-	// Community window messages are disabled because Sync Usage Stats is archived.
-	// const windowMessageEventHandler = async (event) => {
-	// 	if (
-	// 		!['https://openwebui.com', 'https://www.openwebui.com', 'http://localhost:9999'].includes(
-	// 			event.origin
-	// 		)
-	// 	) {
-	// 		return;
-	// 	}
-	//
-	// 	if (event.data === 'export:stats' || event.data?.type === 'export:stats') {
-	// 		syncStatsEventData = event.data;
-	// 		showSyncStatsModal = true;
-	// 	}
-	// };
-
 	// Check for expired tokens and log out
 	onMount(async () => {
 		const originalFetch = window.fetch.bind(window);
@@ -1223,15 +1202,6 @@
 			loaded = true;
 		}
 
-		// Sync Usage Stats is archived; do not auto-show SyncStatsModal from community.
-		// if (
-		// 	(window.opener ?? false) &&
-		// 	$page.url.searchParams.get('sync') === 'true' &&
-		// 	($config?.features?.enable_community_sharing ?? false)
-		// ) {
-		// 	showSyncStatsModal = true;
-		// }
-
 		return () => {
 			window.removeEventListener('resize', onResize);
 			// window.removeEventListener('message', windowMessageEventHandler);
@@ -1288,11 +1258,6 @@
 	{/if}
 {/if}
 -->
-
-<!-- Sync Usage Stats is archived; keep this commented for easy restore. -->
-<!-- {#if $config?.features.enable_community_sharing}
-	<SyncStatsModal bind:show={showSyncStatsModal} eventData={syncStatsEventData} />
-{/if} -->
 
 <Toaster
 	theme={$theme.includes('dark')

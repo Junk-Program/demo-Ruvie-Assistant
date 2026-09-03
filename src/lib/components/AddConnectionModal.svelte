@@ -60,8 +60,8 @@
 	let showDeleteConfirmDialog = false;
 
 	const verifyOllamaHandler = async () => {
-		// remove trailing slash from url
-		url = url.replace(/\/$/, '');
+		url = url.trim().replace(/\/+$/, '');
+		key = key.trim();
 
 		const res = await verifyOllamaConnection(localStorage.token, {
 			url,
@@ -76,8 +76,8 @@
 	};
 
 	const verifyOpenAIHandler = async () => {
-		// remove trailing slash from url
-		url = url.replace(/\/$/, '');
+		url = url.trim().replace(/\/+$/, '');
+		key = key.trim();
 
 		let _headers = null;
 
@@ -177,8 +177,8 @@
 			}
 		}
 
-		// remove trailing slash from url
-		url = url.replace(/\/$/, '');
+		url = url.trim().replace(/\/+$/, '');
+		key = key.trim();
 
 		const connection = {
 			url,
